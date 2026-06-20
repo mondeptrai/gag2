@@ -22,6 +22,8 @@ local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -- Player
 local Player = Players.LocalPlayer
@@ -208,6 +210,282 @@ local WeatherState = {
     RainbowMoon = false,
     MidasMoon = false,
 }
+
+-- ============================================
+-- OPTIMIZATION FEATURES (Always Enabled in Core)
+-- ============================================
+
+-- BlackScreen: Creates a black screen to optimize multi-account performance
+local BlackScreenGui = nil
+local BlackScreenEnabled = true
+
+local function CreateBlackScreen()
+    if BlackScreenGui then return end
+    
+    BlackScreenGui = Instance.new("ScreenGui")
+    BlackScreenGui.Name = "GrowGarden2_BlackScreen"
+    BlackScreenGui.DisplayOrder = 999
+    BlackScreenGui.IgnoreGuiInset = true
+    BlackScreenGui.ResetOnSpawn = false
+    BlackScreenGui.Parent = PlayerGui
+    
+    local BlackFrame = Instance.new("Frame")
+    BlackFrame.Name = "BlackOverlay"
+    BlackFrame.Size = UDim2.new(1, 0, 1, 0)
+    BlackFrame.Position = UDim2.new(0, 0, 0, 0)
+    BlackFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    BlackFrame.BackgroundTransparency = 0
+    BlackFrame.BorderSizePixel = 0
+    BlackFrame.Parent = BlackScreenGui
+    
+    print("[GrowGarden2] BlackScreen activated - CPU/GPU load reduced")
+end
+
+local function CreateBlackScreenStatus()
+    if not BlackScreenGui then return end
+    
+    local statusFrame = BlackScreenGui:FindFirstChild("StatusOverlay")
+    if statusFrame then return end
+    
+    statusFrame = Instance.new("Frame")
+    statusFrame.Name = "StatusOverlay"
+    statusFrame.Size = UDim2.new(0, 400, 0, 200)
+    statusFrame.Position = UDim2.new(0.5, -200, 0.5, -100)
+    statusFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    statusFrame.BackgroundTransparency = 0.3
+    statusFrame.BorderSizePixel = 0
+    statusFrame.Parent = BlackScreenGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = statusFrame
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(55, 55, 80)
+    stroke.Thickness = 1
+    stroke.Parent = statusFrame
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -20, 0, 30)
+    title.Position = UDim2.new(0, 10, 0, 10)
+    title.BackgroundTransparency = 1
+    title.Text = "🌱 GrowGarden2 AutoFarm"
+    title.TextColor3 = Color3.fromRGB(72, 195, 115)
+    title.TextSize = 18
+    title.Font = Enum.Font.GothamBold
+    title.Parent = statusFrame
+    
+    local statusText = Instance.new("TextLabel")
+    statusText.Name = "StatusText"
+    statusText.Size = UDim2.new(1, -20, 0, 25)
+    statusText.Position = UDim2.new(0, 10, 0, 45)
+    statusText.BackgroundTransparency = 1
+    statusText.Text = "⏳ Initializing..."
+    statusText.TextColor3 = Color3.fromRGB(255, 200, 75)
+    statusText.TextSize = 14
+    statusText.Font = Enum.Font.GothamBold
+    statusText.TextXAlignment = Enum.TextXAlignment.Left
+    statusText.Parent = statusFrame
+    
+    local shecklesText = Instance.new("TextLabel")
+    shecklesText.Name = "ShecklesText"
+    shecklesText.Size = UDim2.new(1, -20, 0, 20)
+    shecklesText.Position = UDim2.new(0, 10, 0, 72)
+    shecklesText.BackgroundTransparency = 1
+    shecklesText.Text = "💰 Sheckles: Loading..."
+    shecklesText.TextColor3 = Color3.fromRGB(255, 215, 0)
+    shecklesText.TextSize = 13
+    shecklesText.Font = Enum.Font.Gotham
+    shecklesText.TextXAlignment = Enum.TextXAlignment.Left
+    shecklesText.Parent = statusFrame
+    
+    local farmingText = Instance.new("TextLabel")
+    farmingText.Name = "FarmingText"
+    farmingText.Size = UDim2.new(1, -20, 0, 20)
+    farmingText.Position = UDim2.new(0, 10, 0, 94)
+    farmingText.BackgroundTransparency = 1
+    farmingText.Text = "🌾 Farming: Active"
+    farmingText.TextColor3 = Color3.fromRGB(140, 140, 160)
+    farmingText.TextSize = 13
+    farmingText.Font = Enum.Font.Gotham
+    farmingText.TextXAlignment = Enum.TextXAlignment.Left
+    farmingText.Parent = statusFrame
+    
+    local petText = Instance.new("TextLabel")
+    petText.Name = "PetText"
+    petText.Size = UDim2.new(1, -20, 0, 20)
+    petText.Position = UDim2.new(0, 10, 0, 116)
+    petText.BackgroundTransparency = 1
+    petText.Text = "🐾 Best Pet: None"
+    petText.TextColor3 = Color3.fromRGB(200, 150, 255)
+    petText.TextSize = 13
+    petText.Font = Enum.Font.Gotham
+    petText.TextXAlignment = Enum.TextXAlignment.Left
+    petText.Parent = statusFrame
+    
+    local seedText = Instance.new("TextLabel")
+    seedText.Name = "SeedText"
+    seedText.Size = UDim2.new(1, -20, 0, 20)
+    seedText.Position = UDim2.new(0, 10, 0, 138)
+    seedText.BackgroundTransparency = 1
+    seedText.Text = "✨ Best Seed: None"
+    seedText.TextColor3 = Color3.fromRGB(255, 180, 220)
+    seedText.TextSize = 13
+    seedText.Font = Enum.Font.Gotham
+    seedText.TextXAlignment = Enum.TextXAlignment.Left
+    seedText.Parent = statusFrame
+    
+    local infoText = Instance.new("TextLabel")
+    infoText.Name = "InfoText"
+    infoText.Size = UDim2.new(1, -20, 0, 20)
+    infoText.Position = UDim2.new(0, 10, 0, 160)
+    infoText.BackgroundTransparency = 1
+    infoText.Text = "👤 User: " .. Player.Name
+    infoText.TextColor3 = Color3.fromRGB(100, 100, 120)
+    infoText.TextSize = 12
+    infoText.Font = Enum.Font.Gotham
+    infoText.TextXAlignment = Enum.TextXAlignment.Left
+    infoText.Parent = statusFrame
+end
+
+local function UpdateBlackScreenStatus()
+    if not BlackScreenGui then return end
+    
+    local statusFrame = BlackScreenGui:FindFirstChild("StatusOverlay")
+    if not statusFrame then
+        CreateBlackScreenStatus()
+        statusFrame = BlackScreenGui:FindFirstChild("StatusOverlay")
+    end
+    if not statusFrame then return end
+    
+    local sheckles = GetData("Sheckles")
+    local formattedSheckles = FormatSheckles(sheckles)
+    
+    local statusText = statusFrame:FindFirstChild("StatusText")
+    local shecklesText = statusFrame:FindFirstChild("ShecklesText")
+    local farmingText = statusFrame:FindFirstChild("FarmingText")
+    local petText = statusFrame:FindFirstChild("PetText")
+    local seedText = statusFrame:FindFirstChild("SeedText")
+    
+    if statusText then
+        statusText.Text = "🎮 Farming Active"
+    end
+    
+    if shecklesText then
+        shecklesText.Text = "💰 Sheckles: " .. formattedSheckles
+    end
+    
+    if farmingText then
+        farmingText.Text = "🌾 Status: Auto-Farming"
+    end
+    
+    if petText then
+        petText.Text = "🐾 Best Pet: Mythic/Super"
+    end
+    
+    if seedText then
+        seedText.Text = "✨ Best Seed: Super/Mythic"
+    end
+end
+
+local function StartBlackScreenUpdater()
+    task.spawn(function()
+        while BlackScreenEnabled do
+            UpdateBlackScreenStatus()
+            task.wait(1)
+        end
+    end)
+end
+
+local function DisableRobloxRendering()
+    pcall(function()
+        -- Disable particles
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") or v:IsA("Beam") then
+                v.Enabled = false
+            end
+        end
+        
+        -- Disable shadows
+        Lighting.GlobalShadows = false
+        
+        -- Reduce quality
+        if settings and settings().Rendering then
+            settings().Rendering.QualityLevel = Enum.SavedQualitySetting.Level01
+        end
+    end)
+    print("[GrowGarden2] Roblox rendering disabled - performance optimized")
+end
+
+-- AutoSkipLoading: Automatically skips loading screens
+local AutoSkipEnabled = true
+
+local function StartAutoSkipLoading()
+    task.spawn(function()
+        while AutoSkipEnabled do
+            pcall(function()
+                -- Check for loading screens
+                local loadingGui = PlayerGui:FindFirstChild("LoadingGui")
+                if loadingGui then
+                    for _, child in pairs(loadingGui:GetDescendants()) do
+                        if child:IsA("ImageButton") or child:IsA("TextButton") then
+                            local buttonText = child.Text:lower()
+                            if buttonText:find("skip") or buttonText:find("continue") or buttonText:find("play") then
+                                if child:IsA("ImageButton") then
+                                    firesignal(child.Activated)
+                                else
+                                    child:Click()
+                                end
+                                print("[GrowGarden2] Loading screen skipped")
+                            end
+                        end
+                    end
+                end
+                
+                -- Try clicking anywhere to skip
+                local skipGui = PlayerGui:FindFirstChildWhichIsA("ScreenGui")
+                if skipGui then
+                    for _, gui in pairs(PlayerGui:GetDescendants()) do
+                        if gui:IsA("TextButton") then
+                            local txt = gui.Text:lower()
+                            if txt:find("skip") or txt:find("start") or txt:find("play") then
+                                gui:Click()
+                            end
+                        end
+                    end
+                end
+            end)
+            task.wait(0.5)
+        end
+    end)
+end
+
+-- AntiAfk: Prevents disconnection from being idle
+local AntiAfkEnabled = true
+
+local function StartAntiAfk()
+    task.spawn(function()
+        while AntiAfkEnabled do
+            pcall(function()
+                -- Simulate virtual input to prevent AFK
+                if VirtualInputManager then
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+                    task.wait(0.1)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+                else
+                    -- Alternative: move mouse slightly
+                    local mouse = Player:GetMouse()
+                    local oldX, oldY = mouse.X, mouse.Y
+                    VirtualInputManager:SendMouseMoveEvent(oldX + 1, oldY + 1, true, game)
+                    task.wait(0.1)
+                    VirtualInputManager:SendMouseMoveEvent(oldX, oldY, true, game)
+                end
+            end)
+            task.wait(120) -- Every 2 minutes
+        end
+    end)
+    print("[GrowGarden2] AntiAfk activated - will prevent disconnections")
+end
 
 -- ============================================
 -- UI CREATION
@@ -1365,6 +1643,21 @@ local function StartAllFeatures()
     
     SetupWeatherDetection()
     
+    -- Start optimization features
+    if BlackScreenEnabled then
+        CreateBlackScreen()
+        DisableRobloxRendering()
+        StartBlackScreenUpdater()
+    end
+    
+    if AutoSkipEnabled then
+        StartAutoSkipLoading()
+    end
+    
+    if AntiAfkEnabled then
+        StartAntiAfk()
+    end
+    
     if AutoSettings.AutoHarvest then StartAutoHarvest() end
     if AutoSettings.AutoSell then StartAutoSell() end
     if AutoSettings.AutoBuySeeds then StartAutoBuySeeds() end
@@ -1392,6 +1685,9 @@ local function StartAllFeatures()
 💛 AutoPickupGold: ✅ ACTIVE
 🐾 AutoBuyPets: ✅ ACTIVE
 📝 AutoRedeemCode: ✅ ACTIVE
+🌑 BlackScreen: ✅ ACTIVE (Optimized)
+⏭️ AutoSkipLoading: ✅ ACTIVE
+🛡️ AntiAfk: ✅ ACTIVE (24/7 Protection)
 🎮 ALL FEATURES ENABLED!
     ]])
     

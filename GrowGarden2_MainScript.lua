@@ -3,10 +3,7 @@
     ║           Grow Garden 2 - Ultimate Auto Farm                ║
     ║                    Main Script (Core)                        ║
     ╠══════════════════════════════════════════════════════════════╣
-    ║  Auto-enabled features for new players:                     ║
-    ║  • Auto Harvest • Auto Sell • Auto Plant • Auto Water      ║
-    ║  • Auto Buy Seeds • Auto Buy Gears • Auto Buy Pets          ║
-    ║  • Auto Pickup Events • Auto Redeem Codes                  ║
+    ║  All features auto-enabled - No configuration needed!       ║
     ╚══════════════════════════════════════════════════════════════╝
 ]]
 
@@ -18,13 +15,13 @@ end
 
 -- Wait for game to load
 repeat wait() until game:IsLoaded() and game.Players.LocalPlayer 
+print("[GrowGarden2] Game loaded, starting...")
 
 -- Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
-local UserInputService = game:GetService("UserInputService")
 
 -- Player
 local Player = Players.LocalPlayer
@@ -36,7 +33,7 @@ local Config = getgenv().GardenConfig or {}
 -- Networking Module
 local Networking = nil
 
--- Auto Farm Settings
+-- Auto Farm Settings (ALL ENABLED BY DEFAULT)
 local AutoSettings = {
     AutoHarvest = true,
     AutoSell = true,
@@ -53,27 +50,27 @@ local AutoSettings = {
     AutoSendSeeds = true,
     AutoRedeemCode = true,
     LowEffect = true,
-    FPSCap = 5,
+    FPSCap = 60,
     HarvestDelay = 0.05,
     SellDelay = 0.1,
+    PlantDelay = 0.1,
     BuyDelay = 0.02,
     SendPetUsername = "",
     SendSeedUsername = "",
     SendPetNote = "pet mail",
     SendSeedNote = "seed mail",
     DiscordWebhook = "",
-    DiscordNotifications = {RainbowSeeds = true, GoldSeeds = true, Pets = true},
 }
 
 -- Seed Limits
 local SeedPlantLimits = {
-    ["Carrot"] = 50, ["Strawberry"] = 50, ["Blueberry"] = 50, ["Tulip"] = 50,
-    ["Tomato"] = 50, ["Apple"] = 50, ["Corn"] = 50, ["Cactus"] = 50,
-    ["Pineapple"] = 50, ["Bamboo"] = 20, ["Mushroom"] = 20, ["Green Bean"] = 20,
-    ["Banana"] = 20, ["Grape"] = 20, ["Coconut"] = 20, ["Mango"] = 20,
-    ["Dragon Fruit"] = 20, ["Acorn"] = 20, ["Cherry"] = 20, ["Sunflower"] = 20,
-    ["Venus Fly Trap"] = 10, ["Pomegranate"] = 10, ["Poison Apple"] = 10,
-    ["Venom Spitter"] = 10,
+    ["Carrot"] = 100, ["Strawberry"] = 100, ["Blueberry"] = 100, ["Tulip"] = 100,
+    ["Tomato"] = 100, ["Apple"] = 100, ["Corn"] = 100, ["Cactus"] = 100,
+    ["Pineapple"] = 100, ["Bamboo"] = 50, ["Mushroom"] = 50, ["Green Bean"] = 50,
+    ["Banana"] = 50, ["Grape"] = 50, ["Coconut"] = 50, ["Mango"] = 50,
+    ["Dragon Fruit"] = 50, ["Acorn"] = 50, ["Cherry"] = 50, ["Sunflower"] = 50,
+    ["Venus Fly Trap"] = 30, ["Pomegranate"] = 30, ["Poison Apple"] = 30,
+    ["Venom Spitter"] = 30,
 }
 
 local SeedBuyLimits = {}
@@ -81,7 +78,7 @@ for seed, _ in pairs(SeedPlantLimits) do
     SeedBuyLimits[seed] = 9999
 end
 
--- Seed Values (for priority planting)
+-- Seed Values
 local SeedValues = {
     ["Mushroom"] = 100, ["Moon Bloom"] = 99, ["Lotus"] = 98, ["Dragon's Breath"] = 97,
     ["Venus Fly Trap"] = 96, ["Ghost Pepper"] = 95, ["Sunflower"] = 93, ["Poison Ivy"] = 92,
@@ -105,109 +102,133 @@ local SpecialSeeds = {
     "Gold Dragon Fruit", "Gold Mango", "Gold Lotus", "Gold Moon Bloom",
 }
 
--- Create Simple UI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AutoFarmUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+-- UI Elements (make them global so we can update them)
+local ScreenGui, Frame, StatusLabel, FeaturesLabel
 
-local Frame = Instance.new("Frame")
-Frame.Name = "MainFrame"
-Frame.Size = UDim2.new(0, 250, 0, 170)
-Frame.Position = UDim2.new(0.01, 0, 0.4, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-Frame.BackgroundTransparency = 0.05
-Frame.BorderSizePixel = 0
-Frame.Parent = ScreenGui
-
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 10)
-Corner.Parent = Frame
-
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(60, 60, 80)
-Stroke.Thickness = 1
-Stroke.Parent = Frame
-
-local Title = Instance.new("TextLabel")
-Title.Name = "Title"
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundTransparency = 1
-Title.Text = "🌱 GrowGarden2 AutoFarm"
-Title.TextColor3 = Color3.fromRGB(100, 255, 150)
-Title.TextSize = 16
-Title.Font = Enum.Font.GothamBold
-Title.Parent = Frame
-
-local Status = Instance.new("TextLabel")
-Status.Name = "Status"
-Status.Size = UDim2.new(1, -10, 0, 20)
-Status.Position = UDim2.new(0, 8, 0, 28)
-Status.BackgroundTransparency = 1
-Status.Text = "⏳ Initializing..."
-Status.TextColor3 = Color3.fromRGB(255, 200, 100)
-Status.TextSize = 12
-Status.Font = Enum.Font.Gotham
-Status.TextXAlignment = Enum.TextXAlignment.Left
-Status.Parent = Frame
-
-local Features = Instance.new("TextLabel")
-Features.Name = "Features"
-Features.Size = UDim2.new(1, -16, 0, 110)
-Features.Position = UDim2.new(0, 8, 0, 52)
-Features.BackgroundTransparency = 1
-Features.Text = "⏳ Loading features..."
-Features.TextColor3 = Color3.fromRGB(180, 180, 180)
-Features.TextSize = 11
-Features.Font = Enum.Font.Gotham
-Features.TextXAlignment = Enum.TextXAlignment.Left
-Features.TextYAlignment = Enum.TextYAlignment.Top
-Features.Parent = Frame
-
-local function UpdateStatus(text)
-    Status.Text = text
-    print("[AutoFarm] " .. text)
+-- Create UI
+local function CreateUI()
+    ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "GrowGarden2_AutoFarm"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = PlayerGui
+    
+    Frame = Instance.new("Frame")
+    Frame.Name = "MainFrame"
+    Frame.Size = UDim2.new(0, 280, 0, 220)
+    Frame.Position = UDim2.new(0.01, 0, 0.4, 0)
+    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    Frame.BackgroundTransparency = 0.05
+    Frame.BorderSizePixel = 0
+    Frame.Parent = ScreenGui
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 12)
+    Corner.Parent = Frame
+    
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 35)
+    Title.BackgroundTransparency = 1
+    Title.Text = "🌱 GrowGarden2 AutoFarm"
+    Title.TextColor3 = Color3.fromRGB(100, 255, 150)
+    Title.TextSize = 18
+    Title.Font = Enum.Font.GothamBold
+    Title.Parent = Frame
+    
+    StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Name = "Status"
+    StatusLabel.Size = UDim2.new(1, -10, 0, 25)
+    StatusLabel.Position = UDim2.new(0, 10, 0, 35)
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Text = "⏳ Loading..."
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 220, 100)
+    StatusLabel.TextSize = 14
+    StatusLabel.Font = Enum.Font.GothamBold
+    StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    StatusLabel.Parent = Frame
+    
+    FeaturesLabel = Instance.new("TextLabel")
+    FeaturesLabel.Name = "Features"
+    FeaturesLabel.Size = UDim2.new(1, -20, 1, -70)
+    FeaturesLabel.Position = UDim2.new(0, 10, 0, 65)
+    FeaturesLabel.BackgroundTransparency = 1
+    FeaturesLabel.Text = "⏳ Initializing..."
+    FeaturesLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    FeaturesLabel.TextSize = 12
+    FeaturesLabel.Font = Enum.Font.Gotham
+    FeaturesLabel.TextXAlignment = Enum.TextXAlignment.Left
+    FeaturesLabel.TextYAlignment = Enum.TextYAlignment.Top
+    FeaturesLabel.Parent = Frame
+    
+    print("[GrowGarden2] UI Created")
 end
 
-local function ShowUI()
-    ScreenGui.Parent = PlayerGui
+-- Update Status
+local function SetStatus(text)
+    if StatusLabel then
+        StatusLabel.Text = text
+    end
+    print("[Status] " .. text)
+end
+
+-- Update Features
+local function SetFeatures(text)
+    if FeaturesLabel then
+        FeaturesLabel.Text = text
+    end
 end
 
 -- Load Networking module
 local function LoadNetworking()
-    UpdateStatus("Loading Networking...")
+    SetStatus("Loading Networking...")
+    print("[GrowGarden2] Loading Networking module...")
     
     local success = pcall(function()
-        local sharedModules = ReplicatedStorage:WaitForChild("SharedModules", 15)
+        local sharedModules = ReplicatedStorage:WaitForChild("SharedModules", 20)
         if sharedModules then
-            Networking = require(sharedModules:WaitForChild("Networking", 15))
+            print("[GrowGarden2] SharedModules found, loading Networking...")
+            local NetworkingModule = sharedModules:WaitForChild("Networking", 20)
+            if NetworkingModule then
+                Networking = require(NetworkingModule)
+                
+                -- Debug: List available categories
+                print("[GrowGarden2] Networking module loaded!")
+                print("[GrowGarden2] Available categories:")
+                for k, v in pairs(Networking) do
+                    if type(v) == "table" then
+                        print("  - " .. tostring(k))
+                    end
+                end
+            else
+                error("Networking module not found")
+            end
+        else
+            error("SharedModules not found")
         end
     end)
     
     if success and Networking then
-        UpdateStatus("✅ Networking loaded!")
+        SetStatus("✅ Networking: OK")
         return true
     else
-        UpdateStatus("❌ Networking failed!")
+        SetStatus("⚠️ Networking: Using Fallbacks")
+        warn("[GrowGarden2] Failed to load Networking module, using fallback methods!")
         return false
     end
 end
 
 -- Load config from Loader
 local function LoadConfig()
-    UpdateStatus("Loading Config...")
+    SetStatus("Loading Config...")
+    print("[GrowGarden2] Loading configuration...")
     
     if Config.PetSettings then
         AutoSettings.AutoBuyPets = Config.PetSettings.AutoBuyPets or true
         AutoSettings.AutoBuyPetsRarityFilter = Config.PetSettings.RarityFilter or true
-        AutoSettings.AutoBuyPetsMaxPrice = Config.PetSettings.MaxPrice or 0
     end
     
     if Config.MailSystem then
         AutoSettings.SendPetUsername = Config.MailSystem.SendPetUsername or ""
         AutoSettings.SendSeedUsername = Config.MailSystem.SendSeedUsername or ""
-        AutoSettings.SendPetNote = Config.MailSystem.PetNote or "pet mail"
-        AutoSettings.SendSeedNote = Config.MailSystem.SeedNote or "seed mail"
         AutoSettings.AutoSendPets = Config.MailSystem.AutoSendPets or true
         AutoSettings.AutoSendSeeds = Config.MailSystem.AutoSendSeeds or true
     end
@@ -220,12 +241,10 @@ local function LoadConfig()
     
     if Config.Webhook then
         AutoSettings.DiscordWebhook = Config.Webhook.URL or ""
-        AutoSettings.DiscordNotifications.RainbowSeeds = Config.Webhook.NotifyRainbow ~= false
-        AutoSettings.DiscordNotifications.GoldSeeds = Config.Webhook.NotifyGold ~= false
-        AutoSettings.DiscordNotifications.Pets = Config.Webhook.NotifyPets ~= false
     end
     
-    setfpscap(AutoSettings.FPSCap or 5)
+    -- Apply settings
+    setfpscap(AutoSettings.FPSCap or 60)
     
     if AutoSettings.LowEffect then
         pcall(function()
@@ -238,18 +257,28 @@ local function LoadConfig()
         end)
     end
     
-    UpdateStatus("✅ Config loaded!")
+    SetStatus("✅ Config: OK")
+    print("[GrowGarden2] Configuration loaded!")
 end
 
--- Fire Networking event using metatable Fire method
+-- Fire Networking event
 local function FireNet(category, action, ...)
-    if not Networking then return false end
+    if not Networking then 
+        print("[FireNet] No Networking, trying fallback...")
+        return false 
+    end
     
     local cat = Networking[category]
-    if not cat then return false end
+    if not cat then 
+        print("[FireNet] Category not found: " .. tostring(category))
+        return false 
+    end
     
     local event = cat[action]
-    if not event then return false end
+    if not event then 
+        print("[FireNet] Action not found: " .. tostring(action))
+        return false 
+    end
     
     local mt = getmetatable(event)
     if mt and mt.Fire then
@@ -258,6 +287,42 @@ local function FireNet(category, action, ...)
     elseif event.FireServer then
         event:FireServer(...)
         return true
+    end
+    print("[FireNet] No Fire method found for: " .. category .. "." .. action)
+    return false
+end
+
+-- Fallback: Direct Packet Remote
+local function FirePacket(...)
+    local PacketRemote = ReplicatedStorage:FindFirstChild("SharedModules") 
+        and ReplicatedStorage.SharedModules:FindFirstChild("Packet") 
+        and ReplicatedStorage.SharedModules.Packet:FindFirstChild("RemoteEvent")
+    
+    if PacketRemote then
+        PacketRemote:FireServer(...)
+        return true
+    end
+    return false
+end
+
+-- Fallback: Proximity sell (walk to NPC and trigger)
+local function FallbackSellAll()
+    local char = Player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    
+    local npcs = workspace:FindFirstChild("NPCS")
+    if not npcs then return false end
+    
+    for _, npc in pairs(npcs:GetChildren()) do
+        if npc:IsA("Model") then
+            local npcHrp = npc:FindFirstChild("HumanoidRootPart")
+            if npcHrp then
+                hrp.CFrame = npcHrp.CFrame * CFrame.new(0, 0, 3)
+                task.wait(0.1)
+                return true
+            end
+        end
     end
     return false
 end
@@ -278,27 +343,7 @@ local function GetData(key)
     return success and data or 0
 end
 
--- Send Discord notification
-local function SendNotification(type, msg)
-    if not AutoSettings.DiscordWebhook or AutoSettings.DiscordWebhook == "" then return end
-    
-    local content = ""
-    if type == "rainbow" and AutoSettings.DiscordNotifications.RainbowSeeds then
-        content = "🌈 **Rainbow Seed!** " .. msg
-    elseif type == "gold" and AutoSettings.DiscordNotifications.GoldSeeds then
-        content = "💛 **Gold Seed!** " .. msg
-    elseif type == "pet" and AutoSettings.DiscordNotifications.Pets then
-        content = "🐾 **Rare Pet!** " .. msg
-    end
-    
-    if content ~= "" then
-        pcall(function()
-            HttpService:PostAsync(AutoSettings.DiscordWebhook, HttpService:JSONEncode({content = content}))
-        end)
-    end
-end
-
--- Get garden position for planting
+-- Get garden position
 local function GetGardenPosition()
     local gardens = workspace:FindFirstChild("Gardens")
     if not gardens then return nil end
@@ -310,26 +355,15 @@ local function GetGardenPosition()
             local ownerId = plot:GetAttribute("OwnerId")
             if ownerId == playerId then
                 local visual = plot:FindFirstChild("Visual")
-                local gardenArea = visual and visual:FindFirstChild("GardenTotalArea")
-                if gardenArea and gardenArea:IsA("BasePart") then
-                    return gardenArea.Position
+                local area = visual and visual:FindFirstChild("GardenTotalArea")
+                if area and area:IsA("BasePart") then
+                    return area.Position
                 end
             end
         end
     end
     
-    -- Fallback: use first plot
-    for _, plot in pairs(gardens:GetChildren()) do
-        if plot:IsA("Model") then
-            local visual = plot:FindFirstChild("Visual")
-            local gardenArea = visual and visual:FindFirstChild("GardenTotalArea")
-            if gardenArea and gardenArea:IsA("BasePart") then
-                return gardenArea.Position
-            end
-        end
-    end
-    
-    return Vector3.new(0, 5, 0)
+    return nil
 end
 
 -- Count seeds in backpack
@@ -346,41 +380,58 @@ local function CountSeedsInBackpack(seedName)
     return count
 end
 
--- MAIN LOOPS
-local function StartAutoFarm()
-    Features.Text = [[🌱 AutoPlant: Starting...
+-- START ALL AUTO FEATURES
+local function StartAllAutoFeatures()
+    print("[GrowGarden2] Starting all auto features...")
+    SetStatus("🚀 Starting Auto Farm...")
+    SetFeatures([[🌱 AutoPlant: Starting...
 💧 AutoWater: Starting...
 💵 AutoSell: Starting...
 🛒 AutoBuySeeds: Starting...
 🌾 AutoHarvest: Starting...
-]]
-
-    UpdateStatus("🚀 Starting all features...")
+🐾 AutoBuyPets: Starting...
+⚙️ AutoGears: Starting...
+🎯 AutoPickup: Starting...]])
     
-    -- Auto Redeem Code
-    task.spawn(function()
-        task.wait(3)
-        UpdateStatus("📝 Redeeming code...")
-        FireNet("Codes", "RedeemCode", "TEAMGREENBEAN")
-    end)
+    -- Small delay to let UI update
+    task.wait(0.5)
     
-    -- Auto Sell (NPCS.SellAll)
+    -- 1. AUTO SELL
     task.spawn(function()
+        print("[AutoSell] Started")
+        SetFeatures([[✅ AutoSell: Active
+💧 AutoWater: Starting...
+🌱 AutoPlant: Starting...
+🛒 AutoBuySeeds: Starting...
+🌾 AutoHarvest: Starting...
+🐾 AutoBuyPets: Starting...
+⚙️ AutoGears: Starting...
+🎯 AutoPickup: Starting...]])
+        
         while AutoSettings.AutoSell do
-            FireNet("NPCS", "SellAll")
+            -- Try Networking first, then fallback
+            if not FireNet("NPCS", "SellAll") then
+                FallbackSellAll()
+            end
             task.wait(AutoSettings.SellDelay or 0.1)
         end
     end)
     
-    -- Auto Buy Seeds (SeedShop.PurchaseSeed)
+    -- 2. AUTO BUY SEEDS
     task.spawn(function()
+        print("[AutoBuySeeds] Started")
+        SetFeatures([[✅ AutoSell: Active
+💧 AutoWater: Starting...
+🌱 AutoPlant: Starting...
+🛒 AutoBuySeeds: Active
+🌾 AutoHarvest: Starting...
+🐾 AutoBuyPets: Starting...
+⚙️ AutoGears: Starting...
+🎯 AutoPickup: Starting...]])
+        
         while AutoSettings.AutoBuySeeds do
-            task.wait(0.3)
-            
             local sheckles = GetData("Sheckles")
-            if sheckles < 10 then
-                task.wait(2)
-            else
+            if sheckles >= 10 then
                 local sortedSeeds = {}
                 for seed, value in pairs(SeedValues) do
                     if SeedBuyLimits[seed] and SeedBuyLimits[seed] > 0 then
@@ -400,27 +451,43 @@ local function StartAutoFarm()
         end
     end)
     
-    -- Auto Buy Gears (GearShop.PurchaseGear)
+    -- 3. AUTO BUY GEARS
     task.spawn(function()
+        print("[AutoBuyGears] Started")
+        SetFeatures([[✅ AutoSell: Active
+💧 AutoWater: Starting...
+🌱 AutoPlant: Starting...
+🛒 AutoBuySeeds: Active
+🌾 AutoHarvest: Starting...
+🐾 AutoBuyPets: Starting...
+⚙️ AutoGears: Active
+🎯 AutoPickup: Starting...]])
+        
         while AutoSettings.AutoBuyGears do
-            task.wait(2)
             local gears = {"Common Sprinkler", "Watering Can", "Fertilizer"}
             for _, gear in ipairs(gears) do
                 if not AutoSettings.AutoBuyGears then break end
                 FireNet("GearShop", "PurchaseGear", gear)
             end
+            task.wait(2)
         end
     end)
     
-    -- Auto Plant (Plant.PlantSeed - position first!)
+    -- 4. AUTO PLANT
     task.spawn(function()
+        print("[AutoPlant] Started")
+        SetFeatures([[✅ AutoSell: Active
+💧 AutoWater: Starting...
+🌱 AutoPlant: Active
+🛒 AutoBuySeeds: Active
+🌾 AutoHarvest: Starting...
+🐾 AutoBuyPets: Starting...
+⚙️ AutoGears: Active
+🎯 AutoPickup: Starting...]])
+        
         while AutoSettings.AutoPlant do
-            task.wait(0.1)
-            
             local gardenPos = GetGardenPosition()
-            if not gardenPos then
-                task.wait(1)
-            else
+            if gardenPos then
                 local sortedSeeds = {}
                 for seed, value in pairs(SeedValues) do
                     if SeedPlantLimits[seed] and SeedPlantLimits[seed] > 0 then
@@ -432,15 +499,8 @@ local function StartAutoFarm()
                 for _, data in ipairs(sortedSeeds) do
                     if not AutoSettings.AutoPlant then break end
                     
-                    -- Check if we have seeds
                     if CountSeedsInBackpack(data.seed) > 0 then
-                        -- Plant at garden position with offset
-                        local plantPos = gardenPos + Vector3.new(
-                            math.random(-10, 10),
-                            0.5,
-                            math.random(-10, 10)
-                        )
-                        -- CRITICAL: position is FIRST argument, seed name is SECOND
+                        local plantPos = gardenPos + Vector3.new(math.random(-10, 10), 0.5, math.random(-10, 10))
                         FireNet("Plant", "PlantSeed", plantPos, data.seed)
                         SeedPlantLimits[data.seed] = SeedPlantLimits[data.seed] - 1
                     end
@@ -451,140 +511,159 @@ local function StartAutoFarm()
         end
     end)
     
-    -- Auto Harvest (Garden.CollectFruit)
+    -- 5. AUTO HARVEST
     task.spawn(function()
+        print("[AutoHarvest] Started")
+        SetFeatures([[✅ AutoSell: Active
+💧 AutoWater: Starting...
+🌱 AutoPlant: Active
+🛒 AutoBuySeeds: Active
+🌾 AutoHarvest: Active
+🐾 AutoBuyPets: Starting...
+⚙️ AutoGears: Active
+🎯 AutoPickup: Starting...]])
+        
         while AutoSettings.AutoHarvest do
             FireNet("Garden", "CollectFruit", "", "")
             task.wait(AutoSettings.HarvestDelay or 0.05)
         end
     end)
     
-    -- Auto Water (Garden.WaterPlant)
+    -- 6. AUTO WATER
     task.spawn(function()
+        print("[AutoWater] Started")
+        SetFeatures([[✅ AutoSell: Active
+💧 AutoWater: Active
+🌱 AutoPlant: Active
+🛒 AutoBuySeeds: Active
+🌾 AutoHarvest: Active
+🐾 AutoBuyPets: Starting...
+⚙️ AutoGears: Active
+🎯 AutoPickup: Starting...]])
+        
         while AutoSettings.AutoWater do
-            task.wait(2)
             FireNet("Garden", "WaterPlant", 0)
+            task.wait(2)
         end
     end)
     
-    -- Auto Place Sprinkler (Garden.PlaceSprinkler)
+    -- 7. AUTO PLACE SPRINKLER
     task.spawn(function()
+        print("[AutoSprinkler] Started")
         while AutoSettings.AutoPlaceSprinkler do
-            task.wait(3)
             FireNet("Garden", "PlaceSprinkler", 0)
+            task.wait(3)
         end
     end)
     
-    -- Auto Pickup Rainbow Seeds
+    -- 8. AUTO PICKUP RAINBOW
     task.spawn(function()
+        print("[AutoPickupRainbow] Started")
         while AutoSettings.AutoPickupRainbow do
             task.wait(0.3)
             local weatherValues = ReplicatedStorage:FindFirstChild("WeatherValues")
-            local isRainbow = false
             if weatherValues then
                 local rainbow = weatherValues:FindFirstChild("Rainbow")
                 if rainbow then
                     local playing = rainbow:FindFirstChild("Playing")
-                    if playing and playing:IsA("BoolValue") then
-                        isRainbow = playing.Value
-                    end
-                end
-            end
-            
-            if isRainbow then
-                for _, obj in pairs(workspace:GetDescendants()) do
-                    if obj.Name and string.find(obj.Name:lower(), "rainbow") then
-                        pcall(function()
-                            if obj:IsA("Tool") and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-                                Player.Character.HumanoidRootPart.CFrame = obj.Handle.CFrame
-                            elseif obj:IsA("BasePart") then
-                                Player.Character.HumanoidRootPart.CFrame = obj.CFrame
+                    if playing and playing.Value then
+                        for _, obj in pairs(workspace:GetDescendants()) do
+                            if obj.Name:lower():find("rainbow") then
+                                pcall(function()
+                                    if obj:IsA("Tool") and Player.Character then
+                                        local hrp = Player.Character:FindFirstChild("HumanoidRootPart")
+                                        if hrp and obj:FindFirstChild("Handle") then
+                                            hrp.CFrame = obj.Handle.CFrame
+                                        end
+                                    end
+                                end)
                             end
-                        end)
+                        end
                     end
                 end
             end
         end
     end)
     
-    -- Auto Pickup Gold Seeds
+    -- 9. AUTO PICKUP GOLD
     task.spawn(function()
+        print("[AutoPickupGold] Started")
         while AutoSettings.AutoPickupGold do
             task.wait(0.3)
             local weatherValues = ReplicatedStorage:FindFirstChild("WeatherValues")
-            local isMidas = false
             if weatherValues then
                 local midas = weatherValues:FindFirstChild("Midas")
                 if midas then
                     local playing = midas:FindFirstChild("Playing")
-                    if playing and playing:IsA("BoolValue") then
-                        isMidas = playing.Value
-                    end
-                end
-            end
-            
-            if isMidas then
-                for _, obj in pairs(workspace:GetDescendants()) do
-                    if obj.Name and string.find(obj.Name:lower(), "gold") then
-                        pcall(function()
-                            if obj:IsA("Tool") and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-                                Player.Character.HumanoidRootPart.CFrame = obj.Handle.CFrame
-                            elseif obj:IsA("BasePart") then
-                                Player.Character.HumanoidRootPart.CFrame = obj.CFrame
+                    if playing and playing.Value then
+                        for _, obj in pairs(workspace:GetDescendants()) do
+                            if obj.Name:lower():find("gold") then
+                                pcall(function()
+                                    if obj:IsA("Tool") and Player.Character then
+                                        local hrp = Player.Character:FindFirstChild("HumanoidRootPart")
+                                        if hrp and obj:FindFirstChild("Handle") then
+                                            hrp.CFrame = obj.Handle.CFrame
+                                        end
+                                    end
+                                end)
                             end
-                        end)
+                        end
                     end
                 end
             end
         end
     end)
     
-    -- Auto Harvest Special Seeds
+    -- 10. AUTO HARVEST SPECIAL
     task.spawn(function()
+        print("[AutoHarvestSpecial] Started")
         while AutoSettings.AutoHarvestSpecial do
-            task.wait(0.2)
             for _, seedName in ipairs(SpecialSeeds) do
                 FireNet("Garden", "CollectFruit", seedName, "")
             end
+            task.wait(0.2)
         end
     end)
     
-    -- Auto Send Pets Mail
-    task.spawn(function()
-        while AutoSettings.AutoSendPets and AutoSettings.SendPetUsername ~= "" do
-            task.wait(10)
-            FireNet("NPCS", "SendPetMail", AutoSettings.SendPetUsername, AutoSettings.SendPetNote)
-        end
-    end)
+    -- 11. AUTO REDEEM CODE
+    if AutoSettings.AutoRedeemCode then
+        task.spawn(function()
+            print("[AutoRedeemCode] Started")
+            task.wait(3)
+            FireNet("Codes", "RedeemCode", "TEAMGREENBEAN")
+            print("[GrowGarden2] Code redeemed: TEAMGREENBEAN")
+        end)
+    end
     
-    -- Auto Send Seeds Mail
-    task.spawn(function()
-        while AutoSettings.AutoSendSeeds and AutoSettings.SendSeedUsername ~= "" do
-            task.wait(10)
-            FireNet("NPCS", "SendSeedMail", AutoSettings.SendSeedUsername, AutoSettings.SendSeedNote)
-        end
-    end)
-    
-    Features.Text = [[✅ AutoPlant: Active
-✅ AutoWater: Active
-✅ AutoSell: Active
+    -- ALL STARTED
+    task.wait(1)
+    SetStatus("🎮 Auto Farm Running!")
+    SetFeatures([[✅ AutoSell: Active
 ✅ AutoBuySeeds: Active
-✅ AutoHarvest: Active
 ✅ AutoBuyGears: Active
+✅ AutoPlant: Active
+✅ AutoHarvest: Active
+✅ AutoWater: Active
+✅ AutoSprinkler: Active
 ✅ AutoPickup: Active
-🎮 All Systems Running!]]
+✅ AutoHarvestSpecial: Active
+🎮 ALL FEATURES ACTIVE!]])
     
-    UpdateStatus("🎮 Auto Farm Running!")
+    print("[GrowGarden2] 🎮 All features started!")
 end
 
--- Initialize
-ShowUI()
+-- MAIN INITIALIZATION
+CreateUI()
 LoadConfig()
 
-task.spawn(function()
-    if LoadNetworking() then
-        StartAutoFarm()
-    else
-        warn("⚠️ Failed to start - Networking module not loaded")
+-- Try to load Networking, if fails, try anyway
+if not LoadNetworking() then
+    warn("[GrowGarden2] Networking failed, retrying...")
+    task.wait(2)
+    if not LoadNetworking() then
+        warn("[GrowGarden2] Networking still failed, starting without it...")
     end
-end)
+end
+
+-- Start all features
+StartAllAutoFeatures()

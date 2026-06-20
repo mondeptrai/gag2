@@ -346,6 +346,9 @@ local function CreateBlackScreenStatus()
     infoText.Font = Enum.Font.Gotham
     infoText.TextXAlignment = Enum.TextXAlignment.Left
     infoText.Parent = statusFrame
+    
+    -- Initialize with loading state
+    UpdateBlackScreenStatus()
 end
 
 local function UpdateBlackScreenStatus()
@@ -360,6 +363,97 @@ local function UpdateBlackScreenStatus()
     
     local sheckles = GetData("Sheckles")
     local formattedSheckles = FormatSheckles(sheckles)
+    
+    -- Get best pet (Mythic/Super)
+    local bestPet = "None"
+    local bestPetRarity = 0
+    pcall(function()
+        local petRarityOrder = {Common = 1, Uncommon = 2, Rare = 3, Epic = 4, Legendary = 5, Mythic = 6, Super = 7}
+        
+        -- Check Pets folder
+        local petsFolder = Player:FindFirstChild("Pets")
+        if petsFolder then
+            for _, pet in pairs(petsFolder:GetChildren()) do
+                local rarity = pet:GetAttribute("Rarity") or "Common"
+                local rarityLevel = petRarityOrder[rarity] or 0
+                if rarityLevel > bestPetRarity then
+                    bestPetRarity = rarityLevel
+                    bestPet = rarity .. " " .. pet.Name
+                end
+            end
+        end
+        
+        -- Check backpack tools
+        local backpack = Player:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                if item:IsA("Tool") then
+                    local rarity = item:GetAttribute("Rarity") or "Common"
+                    local rarityLevel = petRarityOrder[rarity] or 0
+                    if rarityLevel > bestPetRarity then
+                        bestPetRarity = rarityLevel
+                        bestPet = rarity .. " " .. item.Name
+                    end
+                end
+            end
+        end
+        
+        -- Check character tools
+        local character = Player.Character
+        if character then
+            for _, item in pairs(character:GetChildren()) do
+                if item:IsA("Tool") then
+                    local rarity = item:GetAttribute("Rarity") or "Common"
+                    local rarityLevel = petRarityOrder[rarity] or 0
+                    if rarityLevel > bestPetRarity then
+                        bestPetRarity = rarityLevel
+                        bestPet = rarity .. " " .. item.Name
+                    end
+                end
+            end
+        end
+    end)
+    
+    -- Get best seed (Super/Mythic tier)
+    local bestSeed = "None"
+    local bestSeedValue = 0
+    pcall(function()
+        local seedValues = {
+            ["Moon Bloom"] = 99, ["Dragon's Breath"] = 97, ["Venus Fly Trap"] = 96,
+            ["Ghost Pepper"] = 95, ["Sunflower"] = 93, ["Poison Ivy"] = 92,
+            ["Poison Apple"] = 90, ["Pomegranate"] = 89, ["Venom Spitter"] = 88,
+            ["Bamboo"] = 85, ["Glow Mushroom"] = 84, ["Cherry"] = 83,
+            ["Acorn"] = 82, ["Horned Melon"] = 81, ["Dragon Fruit"] = 80
+        }
+        
+        local backpack = Player:FindFirstChild("Backpack")
+        if backpack then
+            for _, item in pairs(backpack:GetChildren()) do
+                if item:IsA("Tool") then
+                    local seedName = item.Name
+                    local value = seedValues[seedName] or 0
+                    if value > bestSeedValue and value > 0 then
+                        bestSeedValue = value
+                        bestSeed = seedName
+                    end
+                end
+            end
+        end
+        
+        local character = Player.Character
+        if character then
+            for _, item in pairs(character:GetChildren()) do
+                if item:IsA("Tool") then
+                    local seedName = item.Name
+                    local value = seedValues[seedName] or 0
+                    if value > bestSeedValue and value > 0 then
+                        bestSeedValue = value
+                        bestSeed = seedName
+                    end
+                end
+            end
+        end
+    end)
     
     local statusText = statusFrame:FindFirstChild("StatusText")
     local shecklesText = statusFrame:FindFirstChild("ShecklesText")
@@ -380,11 +474,11 @@ local function UpdateBlackScreenStatus()
     end
     
     if petText then
-        petText.Text = "🐾 Best Pet: Mythic/Super"
+        petText.Text = "🐾 Best Pet: " .. bestPet
     end
     
     if seedText then
-        seedText.Text = "✨ Best Seed: Super/Mythic"
+        seedText.Text = "✨ Best Seed: " .. bestSeed
     end
 end
 
